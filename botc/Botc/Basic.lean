@@ -272,15 +272,135 @@ def atMostN {α}
    (xs : List α)
    (n : ℕ)
    (cond : α → Prop)
-   [inst : DecidablePred cond] := match (generalizing := true) xs, n with
+   [inst : DecidablePred cond] := match xs, n with
    | _, 0 => ¬ ∃ x ∈ xs, cond x
    | .nil, _ => True
-   | .cons x xs', n => if ¬ cond x then
+   | .cons x xs', n => if cond x then
        atMostN xs' n.pred cond
      else
        atMostN xs' n cond
 
-def allDefaultAlignment (ps : List Player) := (∀ (p : Player), p ∈ ps → p.isDefaultAlignment)
+@[simp]
+theorem atMostNConsFalse {α}
+  {x₀ : α}
+  {cond : α → Prop}
+  (h₀ : ¬ cond x₀)
+  (xs : List α)
+  (n : ℕ)
+  [inst : DecidablePred cond]
+  : atMostN (x₀ :: xs) n cond ↔ atMostN xs n cond := by
+  rw [atMostN.eq_def]
+
+  cases n with
+    | zero =>
+      simp [h₀];
+      rw [atMostN.eq_def];
+      simp
+    | succ n =>
+      simp [h₀]
+
+@[simp]
+theorem atMostNConsTrue {α}
+  {x₀ : α}
+  {cond : α → Prop}
+  (h₀ : cond x₀)
+  (xs : List α)
+  (n : ℕ)
+  [inst : DecidablePred cond]
+  : atMostN (x₀ :: xs) n.succ cond ↔ (atMostN xs n cond) := by
+  rw [atMostN.eq_def]
+
+  cases n with
+    | zero => simp [h₀]
+    | succ n =>
+      simp [h₀]
+
+theorem atMostSuccN {α}
+  {xs : List α}
+  {cond : α → Prop}
+  {n : ℕ}
+  [inst : DecidablePred cond]
+  (h : atMostN xs n cond)
+  : atMostN xs (n + 1) cond := by
+  induction xs generalizing n with
+    | nil =>
+      rw [atMostN]
+      repeat simp
+    | cons hn t ih =>
+      cases n with
+        | zero =>
+          have h₂ : ¬ cond hn := by
+            rw [atMostN] at h
+            simp at h
+            exact h.left
+
+          rw [atMostNConsFalse h₂] at h
+          rw [atMostNConsFalse h₂]
+          exact ih h
+        | succ n =>
+          by_cases h₂ : cond hn
+          · rw [atMostNConsTrue h₂] at h
+            rw [atMostNConsTrue h₂]
+            exact ih h
+          rw [atMostNConsFalse h₂] at h
+          rw [atMostNConsFalse h₂]
+          exact ih h
+
+theorem atMostNOfN {α}
+  (xs : List α)
+  (n : ℕ)
+  (hLen : xs.length <= n)
+  (cond : α → Prop)
+  [inst : DecidablePred cond]
+  : (atMostN xs n cond)
+  := by
+  induction xs generalizing n with
+    | nil =>
+      simp at hLen
+      rw [atMostN.eq_def]
+      simp
+      cases n with
+        | zero => simp
+        | succ n => simp
+    | cons h t ih =>
+      simp at hLen
+
+      by_cases h₂ : cond h
+
+      · cases n with
+        | zero =>
+          simp at hLen
+        | succ n =>
+        simp at hLen
+        have tmp := ih n hLen
+
+
+
+        rw [atMostNConsTrue h₂]
+        exact tmp
+
+      rw [atMostNConsFalse h₂]
+
+      cases n with
+        | zero =>
+          simp at hLen
+        | succ n =>
+          simp at hLen
+          have tmp := ih n hLen
+          exact atMostSuccN tmp
+
+theorem atMost1Of2 {α}
+  {a b : α}
+  {cond : α → Prop}
+  [inst : DecidablePred cond]
+  (h : atMostN [a, b] 1 cond)
+  : ¬ (cond a ∧ cond b) := by
+  simp
+  simp [atMostN] at h
+  trivial
+
+
+def allDefaultAlignment (ps : List Player) := ∀ (p : Player), p ∈ ps → p.isDefaultAlignment
 
 instance instAllDefaultAlignment (ps : List Player) :
   Decidable (∀ (p : Player), p ∈ ps → p.isDefaultAlignment) :=
