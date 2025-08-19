@@ -117,11 +117,15 @@ theorem droisonedMeansDroisonedExists
   (hPoisoned : p.droisoned)
   : ∃ p ∈ players, p.droisoned := by exists p
 
+theorem forallNotImp {α} {p q : α → Prop} :
+  (∀ (x : α), p x → ¬ q x) ↔ ¬ ∃ x, p x ∧ q x := by simp
+
+
 theorem classExclusivity
   {mr₁ mr₂ : Role}
   {c : Class}
   (players : List Player)
-  (hClass : Player.exactlyOne players (fun p ↦ p.role.class = c))
+  (hClass : exactlyN players 1 (fun p ↦ p.role.class = c))
   (m₁ : ∃ p ∈ players, p.role = mr₁)
   (m₂ : ∃ p ∈ players, p.role = mr₂)
   (hmr₁ : mr₁.class = c)
@@ -133,7 +137,7 @@ theorem classExclusivity
     | cons p ps ih =>
 
 
-      rw [Player.exactlyOne.eq_def] at hClass
+      rw [exactlyN.eq_def] at hClass
       simp at m₁ m₂ hClass
 
       have {droisoned, alignment, role} := p
@@ -146,12 +150,12 @@ theorem classExclusivity
         rw [hEq₁, hmr₁] at hClass
         rw [hEq₁] at m₂
 
-        simp at hClass
-        rw [Player.exactlyNone] at hClass
+
         simp only [hmrNe₁₂, false_or] at m₂
         have h := roleInClassExistsImplClassExists m₂
         rw [hmr₂] at h
-
+        simp at hClass
+        rw [forallNotImp] at hClass
         contradiction
 
       simp [hNe₁] at m₁
@@ -165,7 +169,7 @@ theorem classExclusivity
         rw [hEq₂, hmr₂] at hClass
 
         simp at hClass
-        rw [Player.exactlyNone] at hClass
+        rw [forallNotImp] at hClass
         contradiction
 
       simp [hNe₂] at m₂
@@ -176,10 +180,11 @@ theorem classExclusivity
         by_contra h
 
         simp [h] at hClass
-        rw [Player.exactlyNone] at hClass
         have h := roleInClassExistsImplClassExists m₁
         rw [hmr₁] at h
+        rw [forallNotImp] at hClass
         contradiction
+
 
       simp [hNotClass] at hClass
       exact ih hClass m₁ m₂
@@ -190,7 +195,7 @@ theorem demonIffRole
   {players : List Player}
   (hDemon : ∃ p ∈ players, p.role = r)
   (hDemonRole : r.class = .demon)
-  (hMaxDemon : Player.exactlyOne players (fun p ↦ p.role.class = r.class))
+  (hMaxDemon : exactlyN players 1 (fun p ↦ p.role.class = r.class))
   (hInPlayers : p ∈ players)
   (hUnique : allUniqueRoles players)
   : p.role.class = r.class ↔ p.role = r
@@ -206,8 +211,10 @@ theorem demonIffRole
       rw [allUniqueRoles, List.pairwise_cons] at hUnique
 
       by_cases hp' : p'.role.class = .demon
-      · simp only [Player.exactlyOne, hp', not_true_eq_false, ↓reduceIte,
-        Player.exactlyNone] at hMaxDemon
+      · simp only [exactlyN, hp', not_true_eq_false, ↓reduceIte, gt_iff_lt, Nat.lt_add_one,
+        Nat.pred_eq_sub_one, Nat.sub_self, exactlyNZeroIff] at hMaxDemon
+        rw [forallNotImp] at hMaxDemon
+
         by_cases hpp' : p = p'
         · rw [hpp', hp']
           simp
@@ -240,7 +247,7 @@ theorem demonIffRole
         rw [hDemonRole] at hDemonExists
         contradiction
 
-      simp [Player.exactlyOne, hp'] at hMaxDemon
+      simp [exactlyN, hp'] at hMaxDemon
 
       have tmp := hUnique.left p
 
@@ -297,7 +304,7 @@ theorem allDefaultImplEvilIffDefaultEvil {ps : List Player}
 variable (you oscar sarah fraser dan hannah tim josh)
 variable (players : List Player)
 
-def allowedRoles : List Role := [
+def allowedGoodRoles : List Role := [
   .virgin,
   .noble,
   .artist,
@@ -306,6 +313,9 @@ def allowedRoles : List Role := [
   .washerwoman,
   .golem,
   .recluse,
+]
+
+def allowedEvilRoles : List Role := [
   .poisoner,
   .scarletwoman,
   .spy,
@@ -347,14 +357,15 @@ theorem puzzle51
   (hPlayers : players = [you, oscar, sarah, fraser, dan, hannah, tim, josh])
   (hUnique : allUniqueRoles players)
   (hAllDefaultAlignment : allDefaultAlignment players)
-  (hMinion : Player.exactlyOne players (fun p ↦ p.role.class = .minion))
-  (hRoleRestriction : ∀ (p : Player), p ∈ players → p.role ∈ allowedRoles)
+  (hMinion : exactlyN players 1 (fun p ↦ p.role.class = .minion))
+  (hRoleRestrictionGood : ∀ (p : Player), p ∈ players → (p.isGood ↔ p.role ∈ allowedGoodRoles))
+  (hRoleRestrictionEvil : ∀ (p : Player), p ∈ players → (p.isEvil ↔ p.role ∈ allowedEvilRoles))
   -- if there's a poison cycle (a loop of players poisoning the next)
   -- they're all poisoned until the shortest duration ends
   (hPoisonSource : (∃ p ∈ players, p.droisoned) ↔ (∃ p ∈ players, p.role = .poisoner))
-  (hMaxPoison : Player.atMostOne players (fun p ↦ p.droisoned))
+  (hMaxPoison : atMostN players 1 (fun p ↦ p.droisoned))
   (hDemon : ∃ p ∈ players, p.role = .kazali)
-  (hMaxDemon : Player.exactlyOne players (fun p ↦ p.role.class = .demon))
+  (hMaxDemon : exactlyN players 1 (fun p ↦ p.role.class = .demon))
 
   (hDemonNotDroisoned : ∀ (p : Player), p ∈ players ∧ p.role.class = .demon → ¬p.droisoned)
   (hDemonNotDead : (¬ ∃ p ∈ players, p.role = .scarletwoman) →
@@ -426,7 +437,7 @@ theorem puzzle51
   have hNoPoisoner : ¬ ∃ p ∈ players, p.role = .poisoner := by
     by_contra hPoisoner
     have hPoisoned := hPoisonSource.mpr hPoisoner
-    simp [Player.atMostOne, hPlayers, Player.exactlyOne, Player.exactlyNone] at hMaxPoison
+    simp [atMostN, hPlayers] at hMaxPoison
 
     have hNoBoffin : ¬ ∃ p ∈ players, p.role = .boffin := by
       by_contra hExists
@@ -514,8 +525,8 @@ theorem puzzle51
     have hHannahNotDroisoned : ¬hannah.droisoned := by
       by_contra h
 
-      simp only [h, Bool.true_eq_false, false_and, and_false, ↓reduceIte, if_false_left,
-        Bool.not_eq_true, false_or] at hMaxPoison
+      simp only [h, Bool.true_eq_false, false_and, ↓reduceIte, if_false_left,
+        Bool.not_eq_true] at hMaxPoison
 
       clear hHannahInfo
 
@@ -622,7 +633,7 @@ theorem puzzle51
         <;> (try contradiction)
         simp [hPlayers] at hNoScarletwoman
 
-      simp [hPlayers, timMinion, Player.exactlyOne, Player.exactlyNone] at hMinion
+      simp [hPlayers, timMinion, exactlyN] at hMinion
 
       have joshDemon : josh.role.class = .demon := by
         -- no minion slot left
@@ -641,7 +652,7 @@ theorem puzzle51
         simp [Role.class] at h
 
 
-      simp [hPlayers, joshDemon, Player.exactlyOne, Player.exactlyNone] at hMaxDemon
+      simp [hPlayers, joshDemon, exactlyN] at hMaxDemon
 
       have hannahDemonOrMinion : hannah.role.class = .minion ∨ hannah.role.class = .demon := by
         -- evil and default alignment
@@ -876,7 +887,7 @@ theorem puzzle51
 
 
 
-    simp [hPlayers, Player.exactlyOne, Player.exactlyNone] at hMinion
+    simp [hPlayers, exactlyN] at hMinion
 
     simp [
       hYou,
@@ -919,7 +930,7 @@ theorem puzzle51
       decide
 
 
-    simp [Player.exactlyOne, hannahMinion, hPlayers, Player.exactlyNone] at hMinion
+    simp [exactlyN, hannahMinion, hPlayers] at hMinion
 
     have hTimGood : tim.isGood := by
       rw [hGoodIffDefaultGood]

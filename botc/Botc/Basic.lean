@@ -1,6 +1,6 @@
-import Mathlib.Tactic.ByContra
-import Mathlib.Tactic.Contrapose
-import Mathlib.Tactic.ApplyAt
+import Mathlib.Init
+
+set_option linter.style.longLine true
 
 inductive Alignment
   | good
@@ -127,118 +127,18 @@ theorem isGoodIffnIsEvil (p : Player) : (p.isGood ↔ ¬p.isEvil) := by
   rewrite [isGood, isEvil]
   cases p.alignment with simp
 
-def exactlyNone (ps : List Player) (cond : Player → Prop) := (¬ (∃ p ∈ ps, cond p))
-
-@[simp]
-theorem exactlyNoneOfNone {ps : List Player}
-  {h : ps = []}
-  {cond : Player → Prop} :
-  (exactlyNone ps cond) = True := by
-  rw [exactlyNone, h]
-
-  simp only [List.not_mem_nil, false_and, exists_false, not_false_eq_true]
-
-@[simp]
-theorem exactlyNoneOfOne {x : Player}
-  {cond : Player → Prop} :
-  exactlyNone [x] cond = ¬ cond x := by
-
-  rw [exactlyNone]
-  simp only [List.mem_cons, List.not_mem_nil, or_false, exists_eq_left]
-
-
-def instExactlyNone (ps : List Player) (cond : Player → Prop) [inst : DecidablePred cond]
-  : Decidable (exactlyNone ps cond) := by
-  rw [exactlyNone]
-  have tmp := by exact ps.decidableBEx cond
-  cases tmp <;> first
-    | right; assumption
-    | left; simp; assumption
-
-def exactlyOne (ps : List Player) (cond : Player → Prop) [inst : DecidablePred cond] :=
-  match ps with
-  | .nil => False
-  | .cons p ps => if ¬ cond p then exactlyOne ps cond else exactlyNone ps cond
-
-
-@[simp]
-theorem exactlyOneOfNone
-  {cond : Player → Prop}
-  [inst : DecidablePred cond] : (exactlyOne [] cond) = False := by
-  rw [exactlyOne.eq_def]
-
-@[simp]
-theorem exactlyOneOfOne
-  {x : Player}
-  {cond : Player → Prop}
-  [inst : DecidablePred cond] : (exactlyOne [x] cond) = (cond x) := by
-  rw [exactlyOne.eq_def]
-
-  simp only [exactlyOneOfNone, exactlyNoneOfNone, ite_not, if_false_right, and_true]
-
-@[simp]
-theorem exactlyOneOfCons {p : Player}
-  {ps : List Player}
-  {cond : Player → Prop}
-  (h : ¬ cond p)
-  [inst : DecidablePred cond] : (exactlyOne (p :: ps) cond) = (exactlyOne (ps) cond) := by
-  rw [exactlyOne.eq_def]
-  simp only [h, not_false_eq_true, ↓reduceIte]
-
-
-theorem exactlyOneImpliesExists
-  {ps : List Player}
-  {cond : Player → Prop}
-  [inst : DecidablePred cond]
-  (h : exactlyOne ps cond) :
-  ∃ p ∈ ps, cond p := by
-  induction ps with
-    | nil => trivial
-    | cons p ps ih =>
-      by_cases h₂ : cond p <;> simp [h₂]
-      exact (exactlyOneOfCons h₂).mp h |> ih
-
-@[simp]
-theorem exactlyOneOfTwo
-  {p₁ p₂ : Player}
-  {cond : Player → Prop}
-  [inst : DecidablePred cond] : (exactlyOne ([p₁, p₂]) cond) = ¬ (cond p₁ ↔ cond p₂) := by
-  rw [exactlyOne]
-  by_cases h : cond p₁
-  · simp only [h, not_true_eq_false, ↓reduceIte, exactlyNoneOfOne, true_iff]
-  simp only [h, not_false_eq_true, ↓reduceIte, exactlyOneOfOne, false_iff, Decidable.not_not]
-
-
--- def instExactlyOne (ps : List Player) (cond : Player →  Prop) [inst : DecidablePred cond]
---   : Decidable (exactlyOne ps cond) := by
---   rw [exactlyOne]
-
---   have tmp := by exact ps.decidableBEx cond
-
-
-
-
--- def exactlyOne (ps : List Player) (cond : Player → Prop) [DecidablePred cond] := match ps with
---   | .nil => False
---   | .cons p ps => if cond p then exactlyNone ps cond else exactlyOne ps cond
-
-def atMostOne (ps : List Player) (cond : Player → Prop) [inst : DecidablePred cond] :=
-   exactlyNone ps cond ∨ exactlyOne ps cond
-
-
-
 def diesToVirginAbility (p : Player) := p.role.class = .townsfolk ∨ (p.role = .spy ∧ ¬p.droisoned)
 
--- demon can't mis
+-- demon can't misregister
 def diesToGolemAbility (p : Player) := p.role.class ≠ .demon
 
 def diesToSlayerAbility (p : Player) := p.role.class = .demon ∨ (p.role = .recluse ∧ ¬p.droisoned)
 
 instance instDecidablePlayerInPlayers (ps : List Player) (p : Player) :
   Decidable (p ∈ ps) := match ps with
-  | .nil => isFalse <| by simp only [List.not_mem_nil, not_false_eq_true]
+  | [] => isFalse <| by simp only [List.not_mem_nil, not_false_eq_true]
 
-  | .cons p₂ ps₂ => match instDecidableEqPlayer p p₂ with
+  | p₂::ps₂ => match instDecidableEqPlayer p p₂ with
     | isTrue h => isTrue <| by
       repeat rewrite [List.mem_cons]
       exact Or.inl h
@@ -252,15 +152,14 @@ instance instDecidablePlayerInPlayers (ps : List Player) (p : Player) :
         exact ⟨h, h₂⟩
 
 end Player
-
 def exactlyN {α}
    (xs : List α)
-   (n : ℕ)
+   (n : Nat)
    (cond : α → Prop)
    [inst : DecidablePred cond] := match xs, n with
-  | .nil, 0 => True
-  | .nil, _ => False
-  | .cons x xs', n =>
+  | [], 0 => True
+  | [], _ => False
+  | x::xs', n =>
     if ¬ cond x then
       exactlyN xs' n cond
     else if n > 0 then
@@ -268,14 +167,113 @@ def exactlyN {α}
     else
       False
 
+
+@[simp]
+theorem exactlyNNilIff
+  {α}
+  {n : Nat}
+  {cond : α → Prop}
+  [inst : DecidablePred cond]
+  : exactlyN [] n cond ↔ n = 0
+  := by
+  by_cases h : n = 0
+  <;> simp [h]
+
+  <;> rw [exactlyN]
+  · trivial
+  · trivial
+  simp [h]
+
+@[simp]
+theorem exactlyNZeroIff
+  {α}
+  {xs : List α}
+  {cond : α → Prop}
+  [inst : DecidablePred cond]
+  : exactlyN xs 0 cond ↔ ∀ (x : α), x ∈ xs → ¬cond x
+  := by
+  induction xs with
+    | nil => simp only [exactlyNNilIff, List.not_mem_nil, false_implies, implies_true]
+    | cons x xs ih =>
+      rw [exactlyN]
+      simp only [ih, gt_iff_lt, Nat.lt_irrefl, ↓reduceIte, ite_not, if_false_left, List.mem_cons,
+        forall_eq_or_imp]
+
+
+-- slightly lower priority than the specialized "zero" ones
+@[simp 998]
+theorem exactlyNConsFalseIff
+  {α}
+  {xs : List α}
+  {x : α}
+  {n : Nat}
+  {cond : α → Prop}
+  (ha : ¬ cond x)
+  [inst : DecidablePred cond]
+  : exactlyN (x::xs) n cond ↔ exactlyN xs n cond
+  := by
+  rw [exactlyN]
+  simp [ha]
+
+@[simp]
+theorem exactlyNConsSuccTrueIff
+  {α}
+  {xs : List α}
+  {x : α}
+  {n : Nat}
+  {cond : α → Prop}
+  (ha : cond x)
+  [inst : DecidablePred cond]
+  : exactlyN (x::xs) (n + 1) cond ↔ exactlyN xs n cond
+  := by
+  rw [exactlyN]
+  simp [ha]
+
+theorem exactlyNImpliesLeLength
+  {α}
+  {xs : List α}
+  {n : Nat}
+  {cond : α → Prop}
+  [inst : DecidablePred cond]
+  (h : exactlyN xs n cond)
+  : n ≤ xs.length := by
+  cases n with
+    | zero => apply Nat.zero_le
+    | succ n => induction xs with
+      | nil => simp at h
+      | cons x xs ih =>
+        simp
+        by_cases hx : cond x
+        <;> simp [hx] at h
+        · exact exactlyNImpliesLeLength h
+
+        simp [h] at ih
+        exact Nat.le_of_add_right_le ih
+
+theorem exactlyNNonZeroImpliesExists
+  {α}
+  {xs : List α}
+  {n : Nat}
+  {cond : α → Prop}
+  [inst : DecidablePred cond]
+  (h : exactlyN xs (n + 1) cond)
+  : ∃ x ∈ xs, cond x
+  := by
+    induction xs with
+    | nil => trivial
+    | cons p ps ih =>
+      by_cases h₂ : cond p <;> simp [h₂]
+
+      exact (exactlyNConsFalseIff h₂).mp h |> ih
+
 def atMostN {α}
    (xs : List α)
-   (n : ℕ)
+   (n : Nat)
    (cond : α → Prop)
    [inst : DecidablePred cond] := match xs, n with
    | _, 0 => ¬ ∃ x ∈ xs, cond x
-   | .nil, _ => True
-   | .cons x xs', n => if cond x then
+   | [], _ => True
+   | x::xs', n => if cond x then
        atMostN xs' n.pred cond
      else
        atMostN xs' n cond
@@ -286,7 +284,7 @@ theorem atMostNConsFalse {α}
   {cond : α → Prop}
   (h₀ : ¬ cond x₀)
   (xs : List α)
-  (n : ℕ)
+  (n : Nat)
   [inst : DecidablePred cond]
   : atMostN (x₀ :: xs) n cond ↔ atMostN xs n cond := by
   rw [atMostN.eq_def]
@@ -304,10 +302,10 @@ theorem atMostNConsTrue {α}
   {x₀ : α}
   {cond : α → Prop}
   (h₀ : cond x₀)
-  (xs : List α)
-  (n : ℕ)
+  {xs : List α}
+  {n : Nat}
   [inst : DecidablePred cond]
-  : atMostN (x₀ :: xs) n.succ cond ↔ (atMostN xs n cond) := by
+  : atMostN (x₀ :: xs) (n + 1) cond ↔ (atMostN xs n cond) := by
   rw [atMostN.eq_def]
 
   cases n with
@@ -318,7 +316,7 @@ theorem atMostNConsTrue {α}
 theorem atMostSuccN {α}
   {xs : List α}
   {cond : α → Prop}
-  {n : ℕ}
+  {n : Nat}
   [inst : DecidablePred cond]
   (h : atMostN xs n cond)
   : atMostN xs (n + 1) cond := by
@@ -348,7 +346,7 @@ theorem atMostSuccN {α}
 
 theorem atMostNOfN {α}
   (xs : List α)
-  (n : ℕ)
+  (n : Nat)
   (hLen : xs.length <= n)
   (cond : α → Prop)
   [inst : DecidablePred cond]
