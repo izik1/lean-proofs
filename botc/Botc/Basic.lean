@@ -22,6 +22,20 @@ def defaultAlignment : Class → Alignment
   | .minion
   | .demon => .evil
 
+def good (c : Class) := c = .townsfolk ∨ c = .outsider
+
+@[simp]
+theorem defaultAlignmentIffGood {c : Class} : c.defaultAlignment = .good ↔ c.good := by
+  rw [defaultAlignment.eq_def, good.eq_def]
+
+  cases c <;> decide
+
+def evil (c : Class) := c = .minion ∨ c = .demon
+
+@[simp]
+theorem defaultAlignmentIffEvil {c : Class} : c.defaultAlignment = .evil ↔ c.evil := by
+  rw [defaultAlignment.eq_def, evil.eq_def]
+  cases c <;> decide
 
 -- instance (c : Class) (a : Alignment) : Decidable (c.defaultAlignment = a) := by
 --   rw [defaultAlignment.eq_def]
@@ -32,35 +46,43 @@ def defaultAlignment : Class → Alignment
 end Class
 
 inductive Role
+  | artist
   | virgin
   | noble
-  | artist
+  | savant
   | slayer
   | nightwatchman
   | washerwoman
+  | drunk
   | golem
   | recluse
+  | boffin
+  | goblin
   | poisoner
   | scarletwoman
   | spy
-  | boffin
   | kazali
+  | leviathan
   deriving DecidableEq, Nonempty
 
 def Role.class : Role → Class
+  | .artist
   | .virgin
   | .noble
-  | .artist
+  | .savant
   | .slayer
   | .nightwatchman
   | .washerwoman => .townsfolk
+  | .drunk
   | .golem
   | .recluse => .outsider
+  | .boffin
+  | .goblin
   | .poisoner
   | .scarletwoman
-  | .spy
-  | .boffin => .minion
-  | .kazali => .demon
+  | .spy => .minion
+  | .kazali
+  | .leviathan => .demon
 
 -- instance (r : Role) (c : Class) : Decidable (r.class = c) := by
 --   rw [Role.class.eq_def]
@@ -70,6 +92,10 @@ def Role.class : Role → Class
 
 namespace Role
 
+
+def demon (r : Role) : Prop := r = .kazali ∨ r = .leviathan
+
+def minion (r : Role) : Prop := r ∈ [.boffin, .goblin, .poisoner, .scarletwoman, .spy]
 
 def defaultAlignment (r : Role) := r.class.defaultAlignment
 
